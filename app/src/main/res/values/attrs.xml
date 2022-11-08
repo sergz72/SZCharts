@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="LineChart">
+        <attr name="title" format="string" />
+        <attr name="titleColor" format="reference" />
+        <attr name="labelColor" format="reference" />
+        <attr name="legendColor" format="reference" />
+        <attr name="lineColors" format="reference" />
+        <attr name="titleSize" format="float" />
+        <attr name="legendSize" format="float" />
+        <attr name="labelSize" format="float" />
+        <attr name="rangeTitle" format="string" />
+        <attr name="domainTitle" format="string" />
+        <attr name="legendTableColumns" format="integer" />
+    </declare-styleable>
+</resources>
