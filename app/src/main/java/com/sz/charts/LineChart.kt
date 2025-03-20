@@ -108,22 +108,20 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
         }
     }
 
-    override fun onDraw(canvas: Canvas?) {
+    override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (canvas != null) {
-            val y1 = drawTitle(canvas) + margin
-            if (mSeries != null) {
-                val y2 = drawLegend(canvas)
-                val yLabelWidth = getYLabelMaxWidth() + margin * 2
-                val xLabelHeight = getXLabelMaxHeight() + margin
-                val yAxis = y2 - xLabelHeight
-                val dy = (((yAxis - y1) * mRangeStepValue).toDouble() / (mSeries!!.mUpperYBoundary - mSeries!!.mLowerYBoundary)).toFloat()
-                val dx = (((width - yLabelWidth) * mDomainStepValue).toDouble() / (mSeries!!.mUpperXBoundary - mSeries!!.mLowerXBoundary)).toFloat()
-                val offsetY = drawYLabels(canvas, y1, yAxis, dy, yLabelWidth)
-                drawXLabels(canvas, yAxis, dx, yLabelWidth)
-                drawAxis(canvas, y1, yAxis, yLabelWidth, dy, dx, offsetY)
-                drawSeries(canvas, y1, yAxis, yLabelWidth)
-            }
+        val y1 = drawTitle(canvas) + margin
+        if (mSeries != null) {
+            val y2 = drawLegend(canvas)
+            val yLabelWidth = getYLabelMaxWidth() + margin * 2
+            val xLabelHeight = getXLabelMaxHeight() + margin
+            val yAxis = y2 - xLabelHeight
+            val dy = (((yAxis - y1) * mRangeStepValue).toDouble() / (mSeries!!.mUpperYBoundary - mSeries!!.mLowerYBoundary)).toFloat()
+            val dx = (((width - yLabelWidth) * mDomainStepValue).toDouble() / (mSeries!!.mUpperXBoundary - mSeries!!.mLowerXBoundary)).toFloat()
+            val offsetY = drawYLabels(canvas, y1, yAxis, dy, yLabelWidth)
+            drawXLabels(canvas, yAxis, dx, yLabelWidth)
+            drawAxis(canvas, y1, yAxis, yLabelWidth, dy, dx, offsetY)
+            drawSeries(canvas, y1, yAxis, yLabelWidth)
         }
     }
 

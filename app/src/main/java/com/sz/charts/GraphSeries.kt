@@ -58,7 +58,7 @@ class GraphSeries {
     }
 
     fun getGraphTitles(): List<String> {
-        return graphData.map { it -> it.title }
+        return graphData.map { it.title }
     }
 
     fun getGraphData(): List<IGraphData> {
