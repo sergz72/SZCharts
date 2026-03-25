@@ -1,8 +1,8 @@
 package com.sz.charts
 
+data class GraphDataItem(val xPos: Int, val yPos: Double)
+
 interface IGraphData {
     val title: String
-    val size: Int
-    fun getY(pos: Int): Double
-    fun getX(pos: Int): Int
+    val data: List<GraphDataItem>
 }

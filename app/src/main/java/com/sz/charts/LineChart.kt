@@ -12,6 +12,7 @@ import androidx.core.content.res.getTextArrayOrThrow
 import java.text.Format
 import kotlin.math.PI
 import kotlin.math.sin
+import androidx.core.graphics.toColorInt
 
 class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) {
     data class LinePaints(val linePaint: Paint, val pointPaint: Paint)
@@ -28,7 +29,6 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
     private val mBlackPaint: Paint
     private val mGrayPaint: Paint
     private val mLinePaintList: List<LinePaints>
-    private val mLegendTableColumns: Int
 
     private var mSeries: GraphSeries? = null
     private var mDomainStepValue: Int = 1
@@ -64,8 +64,6 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
             strokeWidth = 2.0F
         }
 
-        mLegendTableColumns = typedArray?.getInt(R.styleable.LineChart_legendTableColumns, 2) ?: 2
-
         typedArray?.recycle()
     }
 
@@ -77,8 +75,8 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
             if (colors.size != 2) {
                 throw IllegalArgumentException()
             }
-            val linec  = Color.parseColor(colors[0])
-            val pointc = Color.parseColor(colors[1])
+            val linec  = colors[0].toColorInt()
+            val pointc = colors[1].toColorInt()
             paintList.add(LinePaints(
                 Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = linec
@@ -116,8 +114,10 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
             val yLabelWidth = getYLabelMaxWidth() + margin * 2
             val xLabelHeight = getXLabelMaxHeight() + margin
             val yAxis = y2 - xLabelHeight
-            val dy = (((yAxis - y1) * mRangeStepValue).toDouble() / (mSeries!!.mUpperYBoundary - mSeries!!.mLowerYBoundary)).toFloat()
-            val dx = (((width - yLabelWidth) * mDomainStepValue).toDouble() / (mSeries!!.mUpperXBoundary - mSeries!!.mLowerXBoundary)).toFloat()
+            val dy = (((yAxis - y1) * mRangeStepValue).toDouble() /
+                    (mSeries!!.yBoundaries.upperYBoundary - mSeries!!.yBoundaries.lowerYBoundary)).toFloat()
+            val dx = (((width - yLabelWidth) * mDomainStepValue).toDouble() /
+                    (mSeries!!.xBoundaries.upperXBoundary - mSeries!!.xBoundaries.lowerXBoundary)).toFloat()
             val offsetY = drawYLabels(canvas, y1, yAxis, dy, yLabelWidth)
             drawXLabels(canvas, yAxis, dx, yLabelWidth)
             drawAxis(canvas, y1, yAxis, yLabelWidth, dy, dx, offsetY)
@@ -127,8 +127,8 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
 
     private fun drawXLabels(canvas: Canvas, y: Float, dx: Float, x: Float) {
         var xx = x
-        var v = mSeries!!.mLowerXBoundary
-        while (v <= mSeries!!.mUpperXBoundary) {
+        var v = mSeries!!.xBoundaries.lowerXBoundary
+        while (v <= mSeries!!.xBoundaries.upperXBoundary) {
             val text = mDomainLabelFormatter!!.format(v)
             val r = Rect()
             mLabelPaint.getTextBounds(text, 0, text.length, r)
@@ -146,30 +146,29 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
     private fun drawSeries(canvas: Canvas, yStart: Float, yEnd: Float, x: Float) {
         var idx = 0
         for (gd in mSeries!!.getGraphData()) {
-            val s = gd.size
-            if (s > 1) {
-                var prevX = getGraphX(gd, 0, x)
-                var prevY = getGraphY(gd, 0, yStart, yEnd)
-                for (i in 1 until s) {
-                    val currX = getGraphX(gd, i, x)
-                    val currY = getGraphY(gd, i, yStart, yEnd)
+            var prevX: Float? = null
+            var prevY: Float? = null
+            for (data in gd.data) {
+                val currX = getGraphX(data, x)
+                val currY = getGraphY(data, yStart, yEnd)
+                if (prevX != null && prevY != null) {
                     canvas.drawLine(prevX, prevY, currX, currY, mLinePaintList[idx].linePaint)
-                    prevX = currX
-                    prevY = currY
                 }
+                prevX = currX
+                prevY = currY
             }
             idx++
         }
     }
 
-    private fun getGraphX(gd: IGraphData, i: Int, x: Float): Float {
-        val v = gd.getX(i)
-        return x + ((width - x) * (v - mSeries!!.mLowerXBoundary)) / (mSeries!!.mUpperXBoundary - mSeries!!.mLowerXBoundary)
+    private fun getGraphX(item: GraphDataItem, x: Float): Float {
+        return x + ((width - x) * (item.xPos - mSeries!!.xBoundaries.lowerXBoundary)) /
+                (mSeries!!.xBoundaries.upperXBoundary - mSeries!!.xBoundaries.lowerXBoundary)
     }
 
-    private fun getGraphY(gd: IGraphData, i: Int, yStart: Float, yEnd: Float): Float {
-        val v = gd.getY(i)
-        return yStart + (((yEnd - yStart) * (mSeries!!.mUpperYBoundary - v)) / (mSeries!!.mUpperYBoundary - mSeries!!.mLowerYBoundary)).toFloat()
+    private fun getGraphY(item: GraphDataItem, yStart: Float, yEnd: Float): Float {
+        return yStart + (((yEnd - yStart) * (mSeries!!.yBoundaries.upperYBoundary - item.yPos)) /
+                (mSeries!!.yBoundaries.upperYBoundary - mSeries!!.yBoundaries.lowerYBoundary)).toFloat()
     }
 
     private fun drawYLabelText(canvas: Canvas, v: Double, y: Float, w: Float): Int {
@@ -183,23 +182,23 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
 
     private fun drawYLabels(canvas: Canvas, yStart: Float, yEnd: Float, dy: Float, w: Float): Float {
         var y = yStart
-        var v = mSeries!!.mUpperYBoundary - (mSeries!!.mUpperYBoundary % mRangeStepValue)
-        val offsetY = ((mSeries!!.mUpperYBoundary - v) / mRangeStepValue * dy).toFloat()
+        var v = mSeries!!.yBoundaries.upperYBoundary - (mSeries!!.yBoundaries.upperYBoundary % mRangeStepValue)
+        val offsetY = ((mSeries!!.yBoundaries.upperYBoundary - v) / mRangeStepValue * dy).toFloat()
         y += offsetY
-        var height = drawYLabelText(canvas, mSeries!!.mUpperYBoundary, yStart, w)
+        var height = drawYLabelText(canvas, mSeries!!.yBoundaries.upperYBoundary, yStart, w)
         if (offsetY >= height) {
             drawYLabelText(canvas, v, y, w)
         }
         y += dy
         v -= mRangeStepValue
-        while (v >= mSeries!!.mLowerYBoundary) {
-            if ((v - mRangeStepValue >= mSeries!!.mLowerYBoundary) || (yEnd - y >= height)) {
+        while (v >= mSeries!!.yBoundaries.lowerYBoundary) {
+            if ((v - mRangeStepValue >= mSeries!!.yBoundaries.lowerYBoundary) || (yEnd - y >= height)) {
                 height = drawYLabelText(canvas, v, y, w)
             }
             y += dy
             v -= mRangeStepValue
         }
-        drawYLabelText(canvas, mSeries!!.mLowerYBoundary, yEnd, w)
+        drawYLabelText(canvas, mSeries!!.yBoundaries.lowerYBoundary, yEnd, w)
         return offsetY
     }
 
@@ -218,8 +217,8 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
             y += dy
         }
         var xx = x
-        var vx = mSeries!!.mLowerXBoundary
-        while (vx <= mSeries!!.mUpperXBoundary) {
+        var vx = mSeries!!.xBoundaries.lowerXBoundary
+        while (vx <= mSeries!!.xBoundaries.upperXBoundary) {
             canvas.drawLine(xx, yStart, xx, yEnd, mGrayPaint)
             xx += dx
             vx += mDomainStepValue
@@ -234,8 +233,8 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
 
     private fun getXLabelMaxHeight(): Float {
         var h = 0.0
-        var v = mSeries!!.mLowerXBoundary
-        while (v <= mSeries!!.mUpperXBoundary) {
+        var v = mSeries!!.xBoundaries.lowerXBoundary
+        while (v <= mSeries!!.xBoundaries.upperXBoundary) {
             val text = mDomainLabelFormatter!!.format(v)
             val r = Rect()
             mLabelPaint.getTextBounds(text, 0, text.length, r)
@@ -251,8 +250,8 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
 
     private fun getYLabelMaxWidth(): Float {
         var w = 0.0F
-        var y = mSeries!!.mLowerYBoundary
-        while (y <= mSeries!!.mUpperYBoundary) {
+        var y = mSeries!!.yBoundaries.lowerYBoundary
+        while (y <= mSeries!!.yBoundaries.upperYBoundary) {
             val text = mRangeLabelFormatter!!.format(y)
             val r = Rect()
             mLabelPaint.getTextBounds(text, 0, text.length, r)
@@ -277,75 +276,41 @@ class LineChart(context: Context?, attrs: AttributeSet?) : View(context, attrs) 
 
     private fun drawLegend(canvas: Canvas): Float {
         val titles = mSeries!!.getGraphTitles()
-        var totalH = 0
-        if (titles.isNotEmpty()) {
-            val columns =
-                if (titles.size < mLegendTableColumns) titles.size else mLegendTableColumns
-            var rows = titles.size / columns
-            if ((titles.size % columns) != 0) {
-                rows++
-            }
+        val r = Rect()
 
-            val lengths = IntArray(titles.size) { _ -> 0 }
-            val widths  = IntArray(columns) { _ -> 0 }
-            var h = 0
-            var idx = 0
-            val r = Rect()
-            val w = width / columns
+        val widths  = IntArray(titles.size + 1)
+        val mainTitle = mSeries!!.title
+        mLegendPaint.getTextBounds(mainTitle, 0, mainTitle.length, r)
+        var totalH = r.height() + 10
+        var totalW = r.width()
+        widths[0] = totalW + 3
 
-            for (row in 1..rows) {
-                for (column in 1..columns) {
-                    if (idx >= titles.size) {
-                        break
-                    }
-                    val title = titles[idx]
-                    var l = title.length
-                    while (l >= 1) {
-                        mLegendPaint.getTextBounds(title, 0, l, r)
-                        if (r.width() + h < w) {
-                            break
-                        }
-                        l--
-                    }
-                    lengths[idx++] = l
-                    if (widths[column - 1] < r.width()) {
-                        widths[column - 1] = r.width()
-                    }
-                    if (r.height() > h) {
-                        h = r.height()
-                    }
-                }
-            }
-
-            totalH = h * (rows + 1)
-
-            var y = height - totalH
-            idx = 0
-            for (row in 1..rows) {
-                var x = 0
-                for (column in 1..columns) {
-                    if (idx >= titles.size) {
-                        break
-                    }
-                    val title = titles[idx]
-                    val dx = (w - widths[column - 1] - h) / 2
-                    r.left = x + dx
-                    r.right = x + dx + h
-                    r.top = y
-                    r.bottom = y + h
-                    canvas.drawRect(r, mBlackPaint)
-                    canvas.drawLine(r.left.toFloat(), r.bottom.toFloat(), r.right.toFloat(),
-                                    r.top.toFloat(), mLinePaintList[idx].linePaint)
-                    //canvas.drawCircle(r.exactCenterX(), r.exactCenterY(), 5.0F,
-                    //                  mLinePaintList[idx].pointPaint)
-                    canvas.drawText(title.substring(0, lengths[idx++]), r.right.toFloat(), r.bottom.toFloat(),
-                                    mLegendPaint)
-                    x += w
-                }
-                y += h
-            }
+        var idx = 1
+        for (title in titles) {
+            mLegendPaint.getTextBounds(title, 0, title.length, r)
+            if (r.height() + 10 > totalH)
+                totalH = r.height() + 10
+            totalW += r.width() + totalH + 6
+            widths[idx++] = r.width() + 3
         }
-        return (height - totalH).toFloat()
+
+        idx = 0
+        val y = height - totalH
+        var x = (width - totalW) / 2
+        canvas.drawText(mainTitle, x.toFloat(), y.toFloat() - mLegendPaint.ascent(), mLegendPaint)
+        x += widths[idx++]
+        for (title in titles) {
+            r.left = x
+            r.right = x + totalH - 1
+            r.top = y
+            r.bottom = y + totalH - 1
+            canvas.drawRect(r, mBlackPaint)
+            canvas.drawLine(r.left.toFloat(), r.bottom.toFloat(), r.right.toFloat(),
+                            r.top.toFloat(), mLinePaintList[idx - 1].linePaint)
+            canvas.drawText(title, r.right.toFloat() + 3, r.top.toFloat() - mLegendPaint.ascent(), mLegendPaint)
+            x += widths[idx++] + totalH + 3
+        }
+        return y.toFloat()
     }
 
     fun setSeries(series: GraphSeries, domainStepValue: Int, domainLabelFormatter: Format,

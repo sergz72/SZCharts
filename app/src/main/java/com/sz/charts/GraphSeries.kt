@@ -1,61 +1,50 @@
 package com.sz.charts
 
-class GraphSeries {
-    private val graphData: MutableList<IGraphData> = mutableListOf()
-    var mLowerYBoundary: Double = Double.MAX_VALUE
-        private set
-    var mUpperYBoundary: Double = Double.MIN_VALUE
-        private set
-    var mLowerXBoundary: Int = Int.MAX_VALUE
-        private set
-    var mUpperXBoundary: Int = Int.MIN_VALUE
-        private set
-    val size: Int
-        get() = graphData.size
-    private var hasFixedXBoundaries: Boolean = false
-    private var hasFixedYBoundaries: Boolean = false
+data class GraphXBoundaries(val lowerXBoundary: Int, val upperXBoundary: Int)
+data class GraphYBoundaries(val lowerYBoundary: Double, val upperYBoundary: Double)
 
-    fun setXBoundaries(lowerXBoundary: Int, upperXBoundary: Int) {
-        hasFixedXBoundaries = true
-        mLowerXBoundary = lowerXBoundary
-        mUpperXBoundary = upperXBoundary
-    }
-
-    fun setYBoundaries(lowerYBoundary: Double, upperYBoundary: Double) {
-        hasFixedYBoundaries = true
-        mLowerYBoundary = lowerYBoundary
-        mUpperYBoundary = upperYBoundary
-    }
-
-    fun addGraph(data: IGraphData) {
-        graphData.add(data)
-        if (!hasFixedXBoundaries || !hasFixedYBoundaries) {
-            for (i in 0 until data.size) {
-                if (!hasFixedXBoundaries) {
-                    val x = data.getX(i)
-                    if (x < mLowerXBoundary) {
-                        mLowerXBoundary = x
+class GraphSeries(private val graphData: List<IGraphData>, val title: String,
+                  xBoundariesIn: GraphXBoundaries?, yBoundariesIn: GraphYBoundaries?) {
+    companion object {
+        private fun calculateXBoundaries(graphData: List<IGraphData>): GraphXBoundaries {
+            var lowerXBoundary = Int.MAX_VALUE
+            var upperXBoundary = Int.MIN_VALUE
+            for (data in graphData) {
+                for (d in data.data) {
+                    if (d.xPos < lowerXBoundary) {
+                        lowerXBoundary = d.xPos
                     }
-                    if (x > mUpperXBoundary) {
-                        mUpperXBoundary = x
-                    }
-                }
-                if (!hasFixedYBoundaries) {
-                    val y = data.getY(i)
-                    if (y < mLowerYBoundary) {
-                        mLowerYBoundary = y
-                    }
-                    if (y > mUpperYBoundary) {
-                        mUpperYBoundary = y
+                    if (d.xPos > upperXBoundary) {
+                        upperXBoundary = d.xPos
                     }
                 }
             }
-            if (mLowerYBoundary == mUpperYBoundary) {
-                mLowerYBoundary -= 0.1
-                mUpperYBoundary += 0.1
+            return GraphXBoundaries(lowerXBoundary, upperXBoundary)
+        }
+
+        private fun calculateYBoundaries(graphData: List<IGraphData>): GraphYBoundaries {
+            var lowerYBoundary = Double.MAX_VALUE
+            var upperYBoundary = Double.MIN_VALUE
+            for (data in graphData) {
+                for (d in data.data) {
+                    if (d.yPos < lowerYBoundary) {
+                        lowerYBoundary = d.yPos
+                    }
+                    if (d.yPos > upperYBoundary) {
+                        upperYBoundary = d.yPos
+                    }
+                }
             }
+            if (lowerYBoundary == upperYBoundary) {
+                lowerYBoundary -= 0.1
+                upperYBoundary += 0.1
+            }
+            return GraphYBoundaries(lowerYBoundary, upperYBoundary)
         }
     }
+
+    val xBoundaries: GraphXBoundaries = xBoundariesIn ?: calculateXBoundaries(graphData)
+    val yBoundaries: GraphYBoundaries = yBoundariesIn ?: calculateYBoundaries(graphData)
 
     fun getGraphTitles(): List<String> {
         return graphData.map { it.title }

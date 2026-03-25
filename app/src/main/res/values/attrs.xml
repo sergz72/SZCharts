@@ -11,6 +11,5 @@
         <attr name="labelSize" format="float" />
         <attr name="rangeTitle" format="string" />
         <attr name="domainTitle" format="string" />
-        <attr name="legendTableColumns" format="integer" />
     </declare-styleable>
 </resources>
